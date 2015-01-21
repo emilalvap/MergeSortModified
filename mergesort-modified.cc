@@ -95,7 +95,7 @@ auto xmiddle = std::advance(begin,n1/2);
 auto ymiddle = std::upper_bound(middle,end,xmiddle,cmp);
 
 	if( n1 <= MERGE_GRANULARITY || n2 <= MERGE_GRANULARITY){
-		ordenar_caso_base(xbegin,xend,ybegin,yend);	
+		sort_base_case(xbegin,xend,ybegin,yend);	
 	}
 	else {
 		auto lef= mare::create_task([=]{parallel_inplace_merge(xbegin,xmiddle,ybegin,ymiddle,cmp);});
