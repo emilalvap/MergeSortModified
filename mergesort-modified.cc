@@ -33,7 +33,7 @@
 /// Controls size of largest task executed sequentially
 const size_t GRANULARITY = 8192;
 //Granularities close to 0 may cause crashes
-const size_t MERGE_GRANULARITY = 20;
+const size_t MERGE_GRANULARITY = 8192;
 // Asynchronous mergesort, to be invoked in a task
 template<typename Iterator, typename Compare>
 void sort_base_case(Iterator xbegin, Iterator xend, Iterator ybegin, Iterator yend){
@@ -74,18 +74,44 @@ std::advance(xmiddle,n1/2);
 ymiddle = std::upper_bound(middle,end,*xmiddle,cmp);
 
 	if( n1 <= MERGE_GRANULARITY || n2 <= MERGE_GRANULARITY){
-		sort_base_case(xbegin,xend,ybegin,yend);	
+		inplace_merge(begin,middle,end);	
 	}
-	else {
-		auto left= mare::create_task([=]{parallel_inplace_merge(xbegin,xmiddle,ybegin,ymiddle,cmp);});
-		auto right = mare::create_task([=]{parallel_inplace_merge(xmiddle,xend,ymiddle,yend,cmp);});
-		//Funcion de merge de dos regiones no continuas
-		auto merge = mare::create_task([=]{sort_ranges(xbegin,xmiddle,ybegin,ymiddle,xend,yend);});
-		mare::launch(left);
-		mare::launch(right);
-		left >> merge;
-		right >> merge;
-		mare::finish_after(merge);
+		else {
+			// swap x2 and y1
+			std::vector<long> aux;
+			auto aux_it = xmiddle;
+			while(aux_it != middle){
+				aux.push_back(*aux_it);
+				aux_it++;
+			}
+			auto aux_it = xmiddle;
+			auto yaux_it = middle;
+			while(yaux_it != ymiddle){
+				*aux_it = *yaux_it;
+				yaux_it++;
+				aux_it++;
+			}
+			//This is the new middle between y1 and x2
+			auto new_middle = aux_it;
+			auto yaux_it = aux.begin();
+			while( yaux_it != aux.end()){
+				*aux_it = *yaux_it;
+				yaux_it++;
+				aux_it++;
+			}
+			auto new_y_middle = aux_it;
+			
+			//Recursive call
+			auto left= mare::create_task([=]{parallel_inplace_merge(begin,xmiddle,new_middle,cmp);});
+			auto right = mare::create_task([=]{parallel_inplace_merge(new_middle,,new_y_middle,end,cmp);});
+			//Funcion de merge de dos regiones continuas
+			//auto merge = mare::create_task([=]{sort_ranges(begin,xmiddle,ybegin,ymiddle,xend,yend);});
+			auto merge = mare::create_task([=]{cout << "Merge terminado\n";});
+			mare::launch(left);
+			mare::launch(right);
+			left >> merge;
+			right >> merge;
+			mare::finish_after(merge);
 	}
 }
 template<typename Iterator, typename Compare>
