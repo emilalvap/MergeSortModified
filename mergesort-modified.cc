@@ -36,34 +36,6 @@ const size_t GRANULARITY = 8192;
 const size_t MERGE_GRANULARITY = 8192;
 // Asynchronous mergesort, to be invoked in a task
 template<typename Iterator, typename Compare>
-void sort_base_case(Iterator xbegin, Iterator xend, Iterator ybegin, Iterator yend){
-	
-	auto begin = xbegin;
-	std::vector<long> xvector;
-	std::vector<long> yvector;
-	std::copy(xbegin,xend,xvector.begin());
-	std::copy(ybegin,yend,yvector.begin());
-	auto x = xvector.begin();
-	auto y = yvector.begin();
-		while(begin != yend){
-			if(x==xvector.end()){
-			}			
-			else if(y==yvector.end()){
-			}
-			else if(*x <= *y){
-				*begin = *x;
-				x++;
-			}
-			else{
-				*begin = *y;
-				y++;
-			}
-			// Esto puede petar seriamente
-			begin = (begin++ == xend) ? begin++ : ybegin;
-		}
-
-}
-template<typename Iterator, typename Compare>
 void parallel_inplace_merge(Iterator begin, Iterator middle, Iterator end, Compare cmp){
 
 size_t n1 = std::distance(begin,middle);
@@ -104,14 +76,12 @@ ymiddle = std::upper_bound(middle,end,*xmiddle,cmp);
 			//Recursive call
 			auto left= mare::create_task([=]{parallel_inplace_merge(begin,xmiddle,new_middle,cmp);});
 			auto right = mare::create_task([=]{parallel_inplace_merge(new_middle,,new_y_middle,end,cmp);});
-			//Funcion de merge de dos regiones continuas
-			//auto merge = mare::create_task([=]{sort_ranges(begin,xmiddle,ybegin,ymiddle,xend,yend);});
-			auto merge = mare::create_task([=]{cout << "Merge terminado\n";});
+			//auto merge = mare::create_task([=]{cout << "Merge terminado\n";});
 			mare::launch(left);
 			mare::launch(right);
-			left >> merge;
-			right >> merge;
-			mare::finish_after(merge);
+			//left >> merge;
+			//right >> merge;
+			//mare::finish_after(merge);
 	}
 }
 template<typename Iterator, typename Compare>
@@ -136,7 +106,7 @@ mergesort(Iterator begin, Iterator end, Compare cmp)
     mare::launch(merge);
     // mergesort(begin, end, cmp) logically finishes after the merge task
     // finishes
-    mare::finish_after(merge);
+    // mare::finish_after(merge);
   }
 }
 int
