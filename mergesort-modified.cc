@@ -31,64 +31,68 @@
 // blocking parallelization using mare::wait_for.
 
 /// Controls size of largest task executed sequentially
-const size_t GRANULARITY = 8192;
+const size_t GRANULARITY = 8192*2;
 //Granularities close to 0 may cause crashes
-const size_t MERGE_GRANULARITY = 8192;
+const size_t MERGE_GRANULARITY = 8192*2;
 // Asynchronous mergesort, to be invoked in a task
 template<typename Iterator, typename Compare>
 void parallel_inplace_merge(Iterator begin, Iterator middle, Iterator end, Compare cmp){
 size_t n1 = std::distance(begin,middle)/2;
-size_t n2 = std::distance(middle,end);
+size_t n2 = std::distance(middle,end)/2;
 size_t length = std::distance(begin,end);
 
 auto xmiddle = begin;
 auto ymiddle = middle;
 std::advance(xmiddle,n1);
-ymiddle = std::lower_bound(middle,end,*xmiddle,cmp);
+ymiddle = std::upper_bound(middle,end,*xmiddle,cmp);
+//std::cout << "valores de corte x: "<<*xmiddle << " y: " << *ymiddle<<"\n";
 
-if(length <= MERGE_GRANULARITY){
+if(n1 <= MERGE_GRANULARITY || n2 <= MERGE_GRANULARITY){
+
 	inplace_merge(begin,middle,end);	
-}else {
-	// swap x2 and y1
-	std::vector<long> aux;
-	auto aux_it = xmiddle;	
-	while(aux_it != middle){
-		aux.push_back(*aux_it);
-		aux_it++;
-	}
-	auto new_middle = aux_it;
-	auto new_y_middle = aux_it;
-	aux_it = xmiddle;
-	auto yaux_it = middle;
-	if(yaux_it != ymiddle){
-		while(yaux_it != ymiddle){
-			*aux_it = *yaux_it;
-			yaux_it++;
-			aux_it++;
-		}
-		//This is the new middle between y1 and x2
-		new_middle = aux_it;
-		yaux_it = aux.begin();
-		while( yaux_it != aux.end()){
-			*aux_it = *yaux_it;
-			yaux_it++;
-			aux_it++;
-		}
-		new_y_middle = aux_it;
-	}
+}/*else {
+
+	if(ymiddle == middle){
+		auto right = mare::create_task([=]{parallel_inplace_merge(xmiddle,middle,end,cmp);});
+		auto merge = mare::create_task([=]{std::cout << "Merge completo";});		
+		
+		right >> merge;
+		mare::launch(right);
+		mare::finish_after(merge);	
+	}*/
 	else{
-		new_middle=middle;
-		new_y_middle = ymiddle;
+		//swap
+		//Copia auxiliar de x2
+		std::vector<long> v;
+		auto x = xmiddle;
+		while(x!= middle){
+			v.push_back(*x);
+			x++;
+		}
+		
+		auto y = middle;
+		x = xmiddle;
+		while(y!=ymiddle){
+			*x = *y;
+			x++;y++;
+		}
+		auto fin_izquierda = x;
+		auto it = v.begin();
+		while(it!= v.end()){
+			*x=*it;
+			x++;it++;
+		}
+		auto medio_derecha = x;
+		//Recursive call
+		auto left= mare::create_task([=]{parallel_inplace_merge(begin,xmiddle,fin_izquierda,cmp);});
+		auto right = mare::create_task([=]{parallel_inplace_merge(fin_izquierda,medio_derecha,end,cmp);});
+		auto merge = mare::create_task([=]{std::cout << "Merge completo";});		
+		left >> merge; right >> merge;
+		mare::launch(left);
+		mare::launch(right);
+		mare::finish_after(merge);
 	}
-	//Recursive call
-	auto left= mare::create_task([=]{parallel_inplace_merge(begin,xmiddle,new_middle,cmp);});
-	auto right = mare::create_task([=]{parallel_inplace_merge(new_middle,new_y_middle,end,cmp);});
-	auto merge = mare::create_task([=]{std::cout << "Merge completo";});		
-	mare::launch(left);
-	mare::launch(right);
-	left >> merge; right >> merge;
-	mare::finish_after(merge);
-}
+//}
 }
 template<typename Iterator, typename Compare>
 void
@@ -119,9 +123,10 @@ int
 main(int argc, const char* argv[])
 {
   std::vector<long> input;
-  size_t n_def = 1 << 24;
+  size_t n_def = 1 << 16;
   size_t n = n_def;
   clock_t t_ini, t_fin;
+  
 
 
   if (argc >= 2) {
@@ -132,6 +137,8 @@ main(int argc, const char* argv[])
   // Create a random array of integers
   for (size_t i = 0; i < n; i++) {
     input.push_back(rand());
+	//input.push_back(z);
+	//z++;
   }
 
   // Launch mergesort inside a task since it has an asynchronous interface (due
@@ -146,11 +153,15 @@ main(int argc, const char* argv[])
     std::cout << "parallel mergesorting failed\n";
 	auto it = input.begin();
 	auto next = input.begin();
+	double i =0;
 	next++;
 	while(next!= input.end()){
-		if(*it>*next)std::cout << *it << "-"<<*next<< "\n";
-		it++;next++;
+		//if(*it>*next)std::cout << *it << "-"<<*next<< " posicion "<<i<<"\n";
+		//i++;it++;next++;
+		std::cout << *next <<"\n";
+		next++;
 	}
+
   }else{
 	std::cout << "parallel mergesorting success\n";
 	double seconds =  (double)(t_fin - t_ini)/ CLOCKS_PER_SEC;
