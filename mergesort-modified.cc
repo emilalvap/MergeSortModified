@@ -40,14 +40,14 @@ const size_t MERGE_GRANULARITY = 8192;
 template<typename Iterator, typename Compare>
 void parallel_inplace_merge(Iterator begin, Iterator middle, Iterator end, Compare cmp){
 size_t n1 = std::distance(begin,middle)/2;
-size_t n2 = std::distance(middle,end)/2;
+size_t length = std::distance(begin,end);
 
 auto xmiddle = begin;
 auto ymiddle = middle;
 std::advance(xmiddle,n1);
 ymiddle = std::upper_bound(middle,end,*xmiddle,cmp);
 
-if(n1 <= MERGE_GRANULARITY || n2 <= MERGE_GRANULARITY){
+if(length <= MERGE_GRANULARITY){
 	inplace_merge(begin,middle,end);	
 }
 	else{
@@ -114,7 +114,7 @@ int
 main(int argc, const char* argv[])
 {
   std::vector<long> input;
-  size_t n_def = 1 << 16;
+  size_t n_def = 1 << 15;
   size_t n = n_def;
   clock_t t_ini, t_fin;
 
