@@ -31,35 +31,25 @@
 // blocking parallelization using mare::wait_for.
 
 /// Controls size of largest task executed sequentially
-const size_t GRANULARITY = 8192*2;
+//const size_t GRANULARITY = 8192;
+const size_t GRANULARITY = 8192;
 //Granularities close to 0 may cause crashes
-const size_t MERGE_GRANULARITY = 8192*2;
+
+const size_t MERGE_GRANULARITY = 8192;
 // Asynchronous mergesort, to be invoked in a task
 template<typename Iterator, typename Compare>
 void parallel_inplace_merge(Iterator begin, Iterator middle, Iterator end, Compare cmp){
 size_t n1 = std::distance(begin,middle)/2;
 size_t n2 = std::distance(middle,end)/2;
-size_t length = std::distance(begin,end);
 
 auto xmiddle = begin;
 auto ymiddle = middle;
 std::advance(xmiddle,n1);
 ymiddle = std::upper_bound(middle,end,*xmiddle,cmp);
-//std::cout << "valores de corte x: "<<*xmiddle << " y: " << *ymiddle<<"\n";
 
 if(n1 <= MERGE_GRANULARITY || n2 <= MERGE_GRANULARITY){
-
 	inplace_merge(begin,middle,end);	
-}/*else {
-
-	if(ymiddle == middle){
-		auto right = mare::create_task([=]{parallel_inplace_merge(xmiddle,middle,end,cmp);});
-		auto merge = mare::create_task([=]{std::cout << "Merge completo";});		
-		
-		right >> merge;
-		mare::launch(right);
-		mare::finish_after(merge);	
-	}*/
+}
 	else{
 		//swap
 		//Copia auxiliar de x2
@@ -86,10 +76,11 @@ if(n1 <= MERGE_GRANULARITY || n2 <= MERGE_GRANULARITY){
 		//Recursive call
 		auto left= mare::create_task([=]{parallel_inplace_merge(begin,xmiddle,fin_izquierda,cmp);});
 		auto right = mare::create_task([=]{parallel_inplace_merge(fin_izquierda,medio_derecha,end,cmp);});
-		auto merge = mare::create_task([=]{std::cout << "Merge completo";});		
+		auto merge = mare::create_task([=]{int w =0;});		
 		left >> merge; right >> merge;
 		mare::launch(left);
 		mare::launch(right);
+		mare::launch(merge);
 		mare::finish_after(merge);
 	}
 //}
@@ -126,8 +117,6 @@ main(int argc, const char* argv[])
   size_t n_def = 1 << 16;
   size_t n = n_def;
   clock_t t_ini, t_fin;
-  
-
 
   if (argc >= 2) {
     std::istringstream istr(argv[1]);
@@ -137,8 +126,6 @@ main(int argc, const char* argv[])
   // Create a random array of integers
   for (size_t i = 0; i < n; i++) {
     input.push_back(rand());
-	//input.push_back(z);
-	//z++;
   }
 
   // Launch mergesort inside a task since it has an asynchronous interface (due
@@ -149,18 +136,9 @@ main(int argc, const char* argv[])
   mare::launch(t);
   mare::wait_for(t);
   t_fin = clock();
+
   if (!std::is_sorted(input.begin(), input.end())) {
     std::cout << "parallel mergesorting failed\n";
-	auto it = input.begin();
-	auto next = input.begin();
-	double i =0;
-	next++;
-	while(next!= input.end()){
-		//if(*it>*next)std::cout << *it << "-"<<*next<< " posicion "<<i<<"\n";
-		//i++;it++;next++;
-		std::cout << *next <<"\n";
-		next++;
-	}
 
   }else{
 	std::cout << "parallel mergesorting success\n";
